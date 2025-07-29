@@ -1,0 +1,6 @@
+@MassTransitHangfireBug_HostAddress = http://localhost:5013
+
+GET {{MassTransitHangfireBug_HostAddress}}/weatherforecast/
+Accept: application/json
+
+###
