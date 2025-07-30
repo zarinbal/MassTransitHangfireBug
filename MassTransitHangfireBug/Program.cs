@@ -10,7 +10,8 @@ builder.Services.AddOpenApi();
 var services = builder.Services;
 
 
-
+var systemType = builder.Configuration["quartz:system:type"]
+    ?? throw new InvalidOperationException("Missing Quartz system type configuration.");
 
 var app = builder.Build();
 
@@ -19,6 +20,7 @@ if (app.Environment.IsDevelopment())
 {
     app.MapOpenApi();
 }
+
 
 app.UseHttpsRedirection();
 
