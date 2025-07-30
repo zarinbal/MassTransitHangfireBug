@@ -2,6 +2,8 @@
 {
     using MassTransit;
     using MassTransit.Contracts.JobService;
+    using MassTransit.JobService.Messages;
+    using MassTransit.Transports;
     using MassTransitHangfireBug.Objects;
     using Microsoft.AspNetCore.Mvc;
     using Microsoft.Extensions.Logging;
@@ -9,6 +11,7 @@
     using Newtonsoft.Json.Linq;
     using System;
     using System.Collections.Generic;
+    using System.Threading;
     using System.Threading.Tasks;
     using static MassTransit.Monitoring.Performance.BuiltInCounters;
 
@@ -46,11 +49,62 @@
         {
             var conversion = GetConversionObject(path, scheduledTime);
             var jobId = await _publishEndpoint.ScheduleJob(scheduledTime, conversion);
+
+            _logger.LogInformation("Scheduling job at (UTC): {Utc}, (Local): {Local}",
+                       scheduledTime.ToUniversalTime(),
+                       scheduledTime.ToLocalTime());
             return Ok(new
             {
                 JobId = jobId,
                 Video = conversion
             });
+        }
+
+        private async Task<IActionResult> ScheduleJobModified(string? path, DateTimeOffset scheduledTime)
+        {
+            var conversion = GetConversionObject(path, scheduledTime);
+            
+
+            _logger.LogInformation("Scheduling job at Datetime Offset (UTC): {Utc}, (Local): {Local}",
+                       scheduledTime.ToUniversalTime(),
+                       scheduledTime.ToLocalTime());
+
+            //var jobId = await _publishEndpoint.ScheduleJob(scheduledTime, conversion);
+            var jobId = NewId.NextGuid();
+            await _publishEndpoint.Publish<SubmitJob<ConvertVideo>>(new SubmitJobCommand<ConvertVideo>
+            {
+                JobId = jobId,
+                Job = conversion,
+                Schedule = new RecurringJobScheduleInfo { Start = scheduledTime }
+            }, new CancellationToken()).ConfigureAwait(false);
+
+            return Ok(new
+            {
+                JobId = jobId,
+                Video = conversion
+            });
+        }
+
+        [HttpPut("job/modified/utc/{path?}")]
+        public async Task<IActionResult> FireAndForgetSubmitJobModified(string? path, [FromServices] IPublishEndpoint publishEndpoint)
+        {
+            _logger.LogInformation("Sending modified Local job: {Path}", path);
+
+            var scheduledTime = DateTimeOffset.UtcNow.AddSeconds(10);
+
+            var response = await ScheduleJobModified(path, scheduledTime);
+            return response;
+        }
+
+        [HttpPut("job/modified/local/{path?}")]
+        public async Task<IActionResult> FireAndForgetSubmitJobLocalModified(string? path)
+        {
+            _logger.LogInformation("Sending modified Local job: {Path}", path);
+
+            var scheduledTime = DateTimeOffset.Now.AddSeconds(10);
+
+            var response = await ScheduleJobModified(path, scheduledTime);
+            return response;
         }
 
         [HttpPut("job/utc/{path?}")]
@@ -59,10 +113,7 @@
             _logger.LogInformation("Sending Local job: {Path}", path);
 
             var scheduledTime = DateTime.UtcNow.AddSeconds(10);
-            
-            _logger.LogInformation("Scheduling job at (UTC): {Utc}, (Local): {Local}",
-                                   scheduledTime,
-                                   TimeZoneInfo.ConvertTimeFromUtc(scheduledTime, TimeZoneInfo.Local));
+           
 
             var response = await ScheduleJob(path, scheduledTime);
             return response;
@@ -76,7 +127,7 @@
             var scheduledTime = DateTime.Now.AddSeconds(10);
 
             _logger.LogInformation("Scheduling job at (UTC): {Utc}, (Local): {Local}",
-                                TimeZoneInfo.ConvertTimeToUtc(scheduledTime, TimeZoneInfo.Local),
+                                scheduledTime.ToLocalTime(),
                                    scheduledTime);
 
             var response = await ScheduleJob(path, scheduledTime);
@@ -92,7 +143,7 @@
 
             _logger.LogInformation("Scheduling publish message at (UTC): {Utc}, (Local): {Local}",
                                    scheduledTime,
-                                   TimeZoneInfo.ConvertTimeFromUtc(scheduledTime, TimeZoneInfo.Local));
+                                   scheduledTime.ToLocalTime());
 
             var response = await SchedulePublish(path, scheduledTime);
             return response;
@@ -107,7 +158,7 @@
             var scheduledTime = DateTime.Now.AddSeconds(10);
 
             _logger.LogInformation("Scheduling job at (UTC): {Utc}, (Local): {Local}",
-                                TimeZoneInfo.ConvertTimeToUtc(scheduledTime, TimeZoneInfo.Local),
+                                scheduledTime.ToLocalTime(),
                                    scheduledTime);
 
             var response = await SchedulePublish(path, scheduledTime);
@@ -168,7 +219,7 @@
             return Ok();
         }
 
-        private ConvertVideo GetConversionObject(string? path, DateTime? scheduledTime = null)
+        private ConvertVideo GetConversionObject(string? path, DateTimeOffset? scheduledTime = null)
         {
             var groupId = NewId.Next().ToString();
             return new ConvertVideo

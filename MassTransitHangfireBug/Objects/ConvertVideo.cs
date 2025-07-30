@@ -12,6 +12,6 @@ namespace MassTransitHangfireBug.Objects
         public string? Path { get; init; }
 
         public ICollection<VideoDetail>? Details { get; init; } = new List<VideoDetail>();
-        public DateTime? ScheduledTime { get; internal set; }
+        public DateTimeOffset? ScheduledTime { get; internal set; }
     }
 }
