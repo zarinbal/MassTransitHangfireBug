@@ -1,8 +1,8 @@
-namespace TES.TaskScheduler.Service.Components.Test.Objects;
+namespace MassTransitHangfireBug.Objects;
 
 using System;
 using MassTransit;
-using TES.TaskScheduler.Service.Components.Test.Consumers;
+using MassTransitHangfireBug.Consumers;
 
 public class ConvertVideoJobConsumerDefinition :
     ConsumerDefinition<ConvertVideoJobConsumer>

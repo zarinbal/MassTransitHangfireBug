@@ -1,117 +1,133 @@
-﻿namespace TES.TaskScheduler.Service.Components.Test.Controllers
+﻿namespace MassTransitHangfireBug.Controllers
 {
+    using MassTransit;
+    using MassTransit.Contracts.JobService;
+    using MassTransitHangfireBug.Objects;
+    using Microsoft.AspNetCore.Mvc;
+    using Microsoft.Extensions.Logging;
+    using Microsoft.VisualBasic;
+    using Newtonsoft.Json.Linq;
     using System;
     using System.Collections.Generic;
     using System.Threading.Tasks;
-    using MassTransit;
-    using MassTransit.Contracts.JobService;
-    using Microsoft.AspNetCore.Mvc;
-    using Microsoft.Extensions.Logging;
-    using TES.TaskScheduler.Service.Components.Test.Consumers;
-    using TES.TaskScheduler.Service.Components.Test.Objects;
+    using static MassTransit.Monitoring.Performance.BuiltInCounters;
+
 
     [ApiController]
     [Route("[controller]")]
     public class ConvertVideoController :
         ControllerBase
     {
+        readonly IMessageScheduler _scheduler;
         readonly ILogger<ConvertVideoController> _logger;
+        readonly IPublishEndpoint _publishEndpoint;
 
-        public ConvertVideoController(ILogger<ConvertVideoController> logger)
+        public ConvertVideoController(ILogger<ConvertVideoController> logger, IMessageScheduler scheduler, IPublishEndpoint publishEndpoint)
         {
             _logger = logger;
+            _scheduler = scheduler;
+            _publishEndpoint = publishEndpoint;
         }
 
-        [HttpPost("{path}")]
-        public async Task<IActionResult> SubmitJob(string path, [FromServices] IRequestClient<SubmitJob<ConvertVideo>> client)
+        [HttpPut("immediate/{path?}")]
+        public async Task<IActionResult> SubmitJob(string? path, IRequestClient<SubmitJob<ConvertVideo>> client)
         {
-            _logger.LogInformation("Sending job: {Path}", path);
-
-            var groupId = NewId.Next().ToString();
-            var convertion = new ConvertVideo
-            {
-                Path = path,
-                GroupId = groupId,
-                Index = 0,
-                Count = 1,
-                Details =
-                [
-                    new() { Value = "first" },
-                    new() { Value = "second" }
-                ]
-            };
-
-            var jobId = await client.SubmitJob(convertion, new CancellationToken());
-
+            _logger.LogInformation("Sending Immediate job");
+            var conversion = GetConversionObject(path);
+            var jobId = await client.SubmitJob(conversion, new CancellationToken());
             return Ok(new
             {
-                jobId,
-                path
+                JobId = jobId,
+                Video = conversion
             });
-
-
         }
 
-        [HttpPut("{path}")]
-        public async Task<IActionResult> FireAndForgetSubmitJob(string path, [FromServices] IPublishEndpoint publishEndpoint)
+        private async Task<IActionResult> ScheduleJob(string? path, DateTime scheduledTime)
         {
-            _logger.LogInformation("Sending job: {Path}", path);
+            var conversion = GetConversionObject(path, scheduledTime);
+            var jobId = await _publishEndpoint.ScheduleJob(scheduledTime, conversion);
+            return Ok(new
+            {
+                JobId = jobId,
+                Video = conversion
+            });
+        }
 
-            var groupId = NewId.Next().ToString();
+        [HttpPut("job/utc/{path?}")]
+        public async Task<IActionResult> FireAndForgetSubmitJob(string? path, [FromServices] IPublishEndpoint publishEndpoint)
+        {
+            _logger.LogInformation("Sending Local job: {Path}", path);
+
+            var scheduledTime = DateTime.UtcNow.AddSeconds(10);
+            
+            _logger.LogInformation("Scheduling job at (UTC): {Utc}, (Local): {Local}",
+                                   scheduledTime,
+                                   TimeZoneInfo.ConvertTimeFromUtc(scheduledTime, TimeZoneInfo.Local));
+
+            var response = await ScheduleJob(path, scheduledTime);
+            return response;
+        }
+
+        [HttpPut("job/local/{path?}")]
+        public async Task<IActionResult> FireAndForgetSubmitJobLocal(string? path)
+        {
+            _logger.LogInformation("Sending Local job: {Path}", path);
+
+            var scheduledTime = DateTime.Now.AddSeconds(10);
 
             _logger.LogInformation("Scheduling job at (UTC): {Utc}, (Local): {Local}",
-    DateTime.UtcNow.AddSeconds(10),
-    TimeZoneInfo.ConvertTimeFromUtc(DateTime.UtcNow.AddSeconds(10), TimeZoneInfo.Local));
+                                TimeZoneInfo.ConvertTimeToUtc(scheduledTime, TimeZoneInfo.Local),
+                                   scheduledTime);
+
+            var response = await ScheduleJob(path, scheduledTime);
+            return response;
+        }
+
+        [HttpPut("publish/utc/{path?}")]
+        public async Task<IActionResult> SchedulePublishUtcTime(string? path)
+        {
+            _logger.LogInformation("Schedule publish message: {Path}", path);
 
             var scheduledTime = DateTime.UtcNow.AddSeconds(10);
 
-            var jobId = await publishEndpoint.ScheduleJob(scheduledTime, new ConvertVideo
-            {
-                Path = path,
-                GroupId = groupId,
-                Index = 0,
-                Count = 1,
-                Details =
-                [
-                    new() { Value = "first" },
-                    new() { Value = "second" }
-                ]
-            });
+            _logger.LogInformation("Scheduling publish message at (UTC): {Utc}, (Local): {Local}",
+                                   scheduledTime,
+                                   TimeZoneInfo.ConvertTimeFromUtc(scheduledTime, TimeZoneInfo.Local));
+
+            var response = await SchedulePublish(path, scheduledTime);
+            return response;
+        }
 
 
+        [HttpPut("publish/local/{path?}")]
+        public async Task<IActionResult> SchedulePublishLocalTime(string? path)
+        {
+            _logger.LogInformation("Schedule publish message: {Path}", path);
+
+            var scheduledTime = DateTime.Now.AddSeconds(10);
+
+            _logger.LogInformation("Scheduling job at (UTC): {Utc}, (Local): {Local}",
+                                TimeZoneInfo.ConvertTimeToUtc(scheduledTime, TimeZoneInfo.Local),
+                                   scheduledTime);
+
+            var response = await SchedulePublish(path, scheduledTime);
+            return response;
+        }
+
+
+        // This endpoint is used to schedule a publish message for a video conversion
+        private async Task<IActionResult> SchedulePublish(string? path, DateTime scheduledTime)
+        {
+            var conversion = GetConversionObject(path, scheduledTime);
+            var result = await _scheduler.SchedulePublish<ConvertVideo>(scheduledTime, conversion);
             return Ok(new
             {
-                result = jobId,
-                Path = path
+                Result = result,
+                Video = conversion
             });
         }
 
-        [HttpPost("{count:int}")]
-        public async Task<IActionResult> SubmitJob(int count, [FromServices] IRequestClient<ConvertVideo> client)
-        {
-            var jobIds = new List<Guid>(count);
-
-            var groupId = NewId.Next().ToString();
-
-            for (var i = 0; i < count; i++)
-            {
-                var path = NewId.Next() + ".txt";
-
-                var jobId = await client.SubmitJob(new ConvertVideo
-                {
-                    Path = path,
-                    GroupId = groupId,
-                    Index = i,
-                    Count = count,
-                });
-
-                jobIds.Add(jobId);
-            }
-
-            return Ok(new { jobIds });
-        }
-
-        [HttpGet("{jobId:guid}")]
+        [HttpGet("State/{jobId:guid}")]
         public async Task<IActionResult> GetJobState(Guid jobId, [FromServices] IRequestClient<GetJobState> client)
         {
             try
@@ -150,6 +166,23 @@
             await publishEndpoint.RetryJob(jobId);
 
             return Ok();
+        }
+
+        private ConvertVideo GetConversionObject(string? path, DateTime? scheduledTime = null)
+        {
+            var groupId = NewId.Next().ToString();
+            return new ConvertVideo
+            {
+                Path = path,
+                GroupId = groupId,
+                Index = 0,
+                Count = 1,
+                ScheduledTime = scheduledTime,
+                Details =
+                [
+                    new() { Value = scheduledTime?.ToString() ?? "Immediate" }
+                ]
+            };
         }
     }
 }

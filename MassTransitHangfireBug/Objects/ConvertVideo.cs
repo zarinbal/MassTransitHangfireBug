@@ -1,5 +1,6 @@
-namespace TES.TaskScheduler.Service.Components.Test.Objects
+namespace MassTransitHangfireBug.Objects
 {
+    using System;
     using System.Collections.Generic;
 
 
@@ -11,5 +12,6 @@ namespace TES.TaskScheduler.Service.Components.Test.Objects
         public string? Path { get; init; }
 
         public ICollection<VideoDetail>? Details { get; init; } = new List<VideoDetail>();
+        public DateTime? ScheduledTime { get; internal set; }
     }
 }

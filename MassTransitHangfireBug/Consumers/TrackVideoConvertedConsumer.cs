@@ -1,4 +1,4 @@
-namespace TES.TaskScheduler.Service.Components.Test.Consumers
+namespace MassTransitHangfireBug.Consumers
 {
     using System.Collections.Concurrent;
     using System.Collections.Generic;
@@ -6,8 +6,8 @@ namespace TES.TaskScheduler.Service.Components.Test.Consumers
     using System.Threading;
     using System.Threading.Tasks;
     using MassTransit;
+    using MassTransitHangfireBug.Objects;
     using Microsoft.Extensions.Logging;
-    using TES.TaskScheduler.Service.Components.Test.Objects;
 
     public class TrackVideoConvertedConsumer :
         IConsumer<VideoConverted>

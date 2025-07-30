@@ -1,6 +1,7 @@
 ﻿using MassTransit;
-using TES.TaskScheduler.Service.Components.Test.Objects;
-namespace TES.TaskScheduler.Service.Components.Test.Consumers;
+using MassTransitHangfireBug.Objects;
+
+namespace MassTransitHangfireBug.Consumers;
 public class ConvertVideoJobConsumer :
         IJobConsumer<ConvertVideo>
 {

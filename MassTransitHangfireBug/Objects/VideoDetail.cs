@@ -1,4 +1,4 @@
-namespace TES.TaskScheduler.Service.Components.Test.Objects
+namespace MassTransitHangfireBug.Objects
 {
     public record VideoDetail
     {
