@@ -7,7 +7,7 @@ namespace MassTransitHangfireBug.MassStartup
 {
     public static class MassQuartz
     {
-        public static WebApplicationBuilder ConfigureQuartz(this WebApplicationBuilder builder)
+        public static WebApplicationBuilder ConfigureQuartz(WebApplicationBuilder builder)
         {
 
             var services = builder.Services;
@@ -85,7 +85,7 @@ namespace MassTransitHangfireBug.MassStartup
 
             services.AddQuartzHostedService(q => q.WaitForJobsToComplete = true);
 
-            return builder;
+        return builder;
 
         }
     }
