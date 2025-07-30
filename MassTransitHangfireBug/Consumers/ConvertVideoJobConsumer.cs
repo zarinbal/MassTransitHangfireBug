@@ -29,12 +29,6 @@ public class ConvertVideoJobConsumer :
             {
                 await Task.Delay(TimeSpan.FromSeconds(2), context.CancellationToken);
             }
-            //throw new Exception("sfsadfsadf");
-            //await Task.Delay(variance, context.CancellationToken);
-            
-            await context.SetJobProgress((long)variance.TotalMilliseconds, (long)variance.TotalMilliseconds);
-
-            await context.Publish<VideoConverted>(context.Job);
 
             _logger.LogInformation("Converted Video: {GroupId} {Path}", context.Job.GroupId, context.Job.Path);
             watch.Stop();
@@ -46,7 +40,7 @@ public class ConvertVideoJobConsumer :
             var elapsedMs = watch.ElapsedMilliseconds;
             await context.SaveJobState(new ConsumerState { Variance = (long)variance.TotalMilliseconds });
             
-            throw;
+            //throw;
         }
     }
 }

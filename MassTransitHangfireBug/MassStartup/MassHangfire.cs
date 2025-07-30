@@ -6,7 +6,7 @@ using MassTransitHangfireBug.Consumers;
 namespace MassTransitHangfireBug.MassStartup
 {
     public static class MassHangFire    {
-        public static void ConfigureQuartz(WebApplicationBuilder builder)
+        public static WebApplicationBuilder ConfigureHangFire(this WebApplicationBuilder builder)
         {
 
             var services = builder.Services;
@@ -26,7 +26,6 @@ namespace MassTransitHangfireBug.MassStartup
 
                                 x.AddHangfireConsumers();
                                 x.AddConsumer<ConvertVideoJobConsumer>();
-                                x.AddConsumer<TrackVideoConvertedConsumer>();
 
                                 x.UsingInMemory((context, cfg) =>
                                 {
@@ -44,7 +43,7 @@ namespace MassTransitHangfireBug.MassStartup
 
                             });
 
-
+            return builder;
         }
     }
 }

@@ -80,7 +80,7 @@
             {
                 JobId = jobId,
                 Job = conversion,
-                Schedule = new RecurringJobScheduleInfo { Start = scheduledTime },
+                Schedule = new RecurringJobScheduleInfo { Start = scheduledTime, TimeZoneId = TimeZoneInfo.Utc.Id },
 
             }, new CancellationToken()).ConfigureAwait(false);
 

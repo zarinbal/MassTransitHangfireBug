@@ -22,4 +22,8 @@
 
   </ItemGroup>
 
+  <ItemGroup>
+    <Folder Include="Objects\Settings\" />
+  </ItemGroup>
+
 </Project>

@@ -7,7 +7,7 @@ namespace MassTransitHangfireBug.MassStartup
 {
     public static class MassQuartz
     {
-        public static void ConfigureQuartz(WebApplicationBuilder builder)
+        public static WebApplicationBuilder ConfigureQuartz(this WebApplicationBuilder builder)
         {
 
             var services = builder.Services;
@@ -55,7 +55,6 @@ namespace MassTransitHangfireBug.MassStartup
 
                                 x.AddQuartzConsumers();
                                 x.AddConsumer<ConvertVideoJobConsumer>();
-                                x.AddConsumer<TrackVideoConvertedConsumer>();
 
                                 x.UsingInMemory((context, cfg) =>
                                 {
@@ -85,6 +84,9 @@ namespace MassTransitHangfireBug.MassStartup
             });
 
             services.AddQuartzHostedService(q => q.WaitForJobsToComplete = true);
+
+            return builder;
+
         }
     }
 }
