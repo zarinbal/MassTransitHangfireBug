@@ -1,10 +1,3 @@
-using Hangfire;
-using Hangfire.MemoryStorage;
-using HealthChecks.SqlServer;
-using MassTransit;
-using MassTransitHangfireBug.Consumers;
-using Microsoft.Extensions.Configuration;
-using Quartz;
 
 var builder = WebApplication.CreateBuilder(args);
 
