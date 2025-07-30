@@ -1,7 +1,10 @@
 using Hangfire;
 using Hangfire.MemoryStorage;
+using HealthChecks.SqlServer;
 using MassTransit;
 using MassTransitHangfireBug.Consumers;
+using Microsoft.Extensions.Configuration;
+using Quartz;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -13,39 +16,7 @@ builder.Services.AddOpenApi();
 
 var services = builder.Services;
 
-services.AddHangfireServer();
 
-// Add Hangfire with PostgreSQL storage
-services.AddHangfire(config =>
-{
-    config.UseRecommendedSerializerSettings();
-    config.UseMemoryStorage();
-});
-
-builder.Services
-                .AddMassTransit(x =>
-                {
-                    x.AddPublishMessageScheduler();
-
-                    x.AddHangfireConsumers();
-                    x.AddConsumer<ConvertVideoJobConsumer>();
-                    x.AddConsumer<TrackVideoConvertedConsumer>();
-
-                    x.UsingInMemory((context, cfg) =>
-                    {
-                        cfg.UsePublishMessageScheduler();
-                        //cfg.UseHangfireScheduler();
-
-                        cfg.ConfigureEndpoints(context);
-                    });
-
-
-                    x.SetInMemorySagaRepositoryProvider();
-                    x.AddJobSagaStateMachines(options => options.FinalizeCompleted = true);
-
-
-
-                });
 
 
 var app = builder.Build();
@@ -62,6 +33,5 @@ app.UseAuthorization();
 
 app.MapControllers();
 
-app.MapHangfireDashboard();
 
 app.Run();

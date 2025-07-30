@@ -3,17 +3,12 @@
     using MassTransit;
     using MassTransit.Contracts.JobService;
     using MassTransit.JobService.Messages;
-    using MassTransit.Transports;
     using MassTransitHangfireBug.Objects;
     using Microsoft.AspNetCore.Mvc;
     using Microsoft.Extensions.Logging;
-    using Microsoft.VisualBasic;
-    using Newtonsoft.Json.Linq;
     using System;
-    using System.Collections.Generic;
     using System.Threading;
     using System.Threading.Tasks;
-    using static MassTransit.Monitoring.Performance.BuiltInCounters;
 
 
     [ApiController]
@@ -24,12 +19,17 @@
         readonly IMessageScheduler _scheduler;
         readonly ILogger<ConvertVideoController> _logger;
         readonly IPublishEndpoint _publishEndpoint;
+        private readonly IRequestClient<GetJobState> _jobStateClient;
 
-        public ConvertVideoController(ILogger<ConvertVideoController> logger, IMessageScheduler scheduler, IPublishEndpoint publishEndpoint)
+        public ConvertVideoController(ILogger<ConvertVideoController> logger, IMessageScheduler scheduler, IPublishEndpoint publishEndpoint,
+
+            IRequestClient<GetJobState> client
+            )
         {
             _logger = logger;
             _scheduler = scheduler;
             _publishEndpoint = publishEndpoint;
+            _jobStateClient = client;
         }
 
         [HttpPut("immediate/{path?}")]
@@ -53,10 +53,16 @@
             _logger.LogInformation("Scheduling job at (UTC): {Utc}, (Local): {Local}",
                        scheduledTime.ToUniversalTime(),
                        scheduledTime.ToLocalTime());
+
+            Thread.Sleep(1000); // Simulate some delay for the job to be processed
+
+            var status = await _jobStateClient.GetJobState(jobId);
+
             return Ok(new
             {
                 JobId = jobId,
-                Video = conversion
+                Video = conversion,
+                Status = status
             });
         }
 
@@ -64,7 +70,6 @@
         {
             var conversion = GetConversionObject(path, scheduledTime);
             
-
             _logger.LogInformation("Scheduling job at Datetime Offset (UTC): {Utc}, (Local): {Local}",
                        scheduledTime.ToUniversalTime(),
                        scheduledTime.ToLocalTime());
@@ -75,18 +80,22 @@
             {
                 JobId = jobId,
                 Job = conversion,
-                Schedule = new RecurringJobScheduleInfo { Start = scheduledTime }
+                Schedule = new RecurringJobScheduleInfo { Start = scheduledTime },
+
             }, new CancellationToken()).ConfigureAwait(false);
 
+            Thread.Sleep(1000); // Simulate some delay for the job to be processed
+            var status = await _jobStateClient.GetJobState(jobId);
             return Ok(new
             {
                 JobId = jobId,
-                Video = conversion
+                Video = conversion,
+                Status = status
             });
         }
 
         [HttpPut("job/modified/utc/{path?}")]
-        public async Task<IActionResult> FireAndForgetSubmitJobModified(string? path, [FromServices] IPublishEndpoint publishEndpoint)
+        public async Task<IActionResult> FireAndForgetSubmitJobModified(string? path)
         {
             _logger.LogInformation("Sending modified Local job: {Path}", path);
 
@@ -108,7 +117,7 @@
         }
 
         [HttpPut("job/utc/{path?}")]
-        public async Task<IActionResult> FireAndForgetSubmitJob(string? path, [FromServices] IPublishEndpoint publishEndpoint)
+        public async Task<IActionResult> FireAndForgetSubmitJob(string? path)
         {
             _logger.LogInformation("Sending Local job: {Path}", path);
 
@@ -179,11 +188,11 @@
         }
 
         [HttpGet("State/{jobId:guid}")]
-        public async Task<IActionResult> GetJobState(Guid jobId, [FromServices] IRequestClient<GetJobState> client)
+        public async Task<IActionResult> GetJobState(Guid jobId)
         {
             try
             {
-                var jobState = await client.GetJobState(jobId);
+                var jobState = await _jobStateClient.GetJobState(jobId);
 
                 return Ok(new
                 {
@@ -204,17 +213,17 @@
         }
 
         [HttpDelete("{jobId:guid}")]
-        public async Task<IActionResult> CancelJob(Guid jobId, [FromServices] IPublishEndpoint publishEndpoint)
+        public async Task<IActionResult> CancelJob(Guid jobId)
         {
-            await publishEndpoint.CancelJob(jobId, "User Request");
+            await _publishEndpoint.CancelJob(jobId, "User Request");
 
             return Ok();
         }
 
         [HttpPost("{jobId:guid}")]
-        public async Task<IActionResult> RetryJob(Guid jobId, [FromServices] IPublishEndpoint publishEndpoint)
+        public async Task<IActionResult> RetryJob(Guid jobId)
         {
-            await publishEndpoint.RetryJob(jobId);
+            await _publishEndpoint.RetryJob(jobId);
 
             return Ok();
         }
